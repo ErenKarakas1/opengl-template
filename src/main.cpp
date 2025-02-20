@@ -2,41 +2,46 @@
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 
-#include "vec.hpp"
+#include "math.hpp"
 #include "color.hpp"
 #include "shader.hpp"
 
 #include <array>
 #include <iostream>
 
-void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
+using Vec3 = utils::math::Vec3;
+using float4 = utils::color::float4;
+
+namespace {
+void framebufferSizeCallback(GLFWwindow *window, const int width, const int height) {
     (void) window;
     glViewport(0, 0, width, height);
 }
 
 void processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-        glfwSetWindowShouldClose(window, true);
+        glfwSetWindowShouldClose(window, 1);
     }
 }
+} // namespace
 
 struct Vertex {
-    Vec3 position;
-    Color color;
+    Vec3 position{};
+    float4 color{};
 };
 
 int main() {
     constexpr unsigned int HEIGHT = 600;
     constexpr unsigned int WIDTH = 800;
 
-    const std::array<Vertex, 3> vertices = {
-        Vertex{Vec3{0.5F, -0.5F}, RED},
-        Vertex{Vec3{-0.5F, -0.5F}, GREEN},
-        Vertex{Vec3{0.0F, 0.5F}, BLUE}
+    constexpr std::array<Vertex, 3> vertices = {
+        Vertex{{0.5F, -0.5F, 0.0F},  normalize_color(utils::color::RED)},
+        Vertex{{-0.5F, -0.5F, 0.0F}, normalize_color(utils::color::GREEN)},
+        Vertex{{0.0F, 0.5F, 0.0F},   normalize_color(utils::color::BLUE)}
     };
 
-    if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
+    if (glfwInit() == 0) {
+        std::cerr << "Failed to initialize GLFW" << '\n';
         return -1;
     }
 
@@ -48,7 +53,7 @@ int main() {
     GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, "Hello, World", nullptr, nullptr);
 
     if (window == nullptr) {
-        std::cerr << "Failed to create GLFW window" << std::endl;
+        std::cerr << "Failed to create GLFW window" << '\n';
         glfwTerminate();
         return -1;
     }
@@ -56,13 +61,13 @@ int main() {
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
-    if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
-        std::cerr << "Failed to initialize GLAD" << std::endl;
+    if (gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)) == 0) {
+        std::cerr << "Failed to initialize GLAD" << '\n';
         glfwTerminate();
         return -1;
     }
 
-    const Shader shader("shaders/vertex.glsl", "shaders/fragment.glsl");
+    const GLuint program = shaders::create_shader_program("shaders/vertex.glsl", "shaders/fragment.glsl");
 
     unsigned int VBO, VAO;
     glGenVertexArrays(1, &VAO);
@@ -76,16 +81,16 @@ int main() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), nullptr);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void *>(sizeof(Vec3)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void *>(sizeof(vertices[0].position)));
     glEnableVertexAttribArray(1);
 
-    while (!glfwWindowShouldClose(window)) {
+    while (glfwWindowShouldClose(window) == 0) {
         processInput(window);
 
         glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        shader.use();
+        glUseProgram(program);
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
@@ -95,6 +100,7 @@ int main() {
 
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
+    glDeleteProgram(program);
 
     glfwTerminate();
     return 0;
